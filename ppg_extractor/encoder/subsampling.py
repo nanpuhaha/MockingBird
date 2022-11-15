@@ -120,9 +120,7 @@ class Conv2dNoSubsampling(torch.nn.Module):
         x = self.conv(x)
         b, c, t, f = x.size()
         x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
-        if x_mask is None:
-            return x, None
-        return x, x_mask
+        return (x, None) if x_mask is None else (x, x_mask)
 
     def __getitem__(self, key):
         """Subsample x.
@@ -171,9 +169,7 @@ class Conv2dSubsampling6(torch.nn.Module):
         x = self.conv(x)
         b, c, t, f = x.size()
         x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
-        if x_mask is None:
-            return x, None
-        return x, x_mask[:, :, :-2:2][:, :, :-4:3]
+        return (x, None) if x_mask is None else (x, x_mask[:, :, :-2:2][:, :, :-4:3])
 
 
 class Conv2dSubsampling8(torch.nn.Module):

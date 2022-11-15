@@ -49,16 +49,16 @@ def convert(args):
     ref_wav_path = args.ref_wav_path
     ref_wav = preprocess_wav(ref_wav_path)
     ref_fid = os.path.basename(ref_wav_path)[:-4]
-    
+
     # TODO: specify encoder
     speacker_encoder.load_model(Path("encoder/saved_models/pretrained_bak_5805000.pt"))
     ref_spk_dvec = speacker_encoder.embed_utterance(ref_wav)
     ref_spk_dvec = torch.from_numpy(ref_spk_dvec).unsqueeze(0).to(device)
     ref_lf0_mean, ref_lf0_std = compute_mean_std(f02lf0(compute_f0(ref_wav)))
-    
+
     source_file_list = sorted(glob.glob(f"{args.wav_dir}/*.wav"))
     print(f"Number of source utterances: {len(source_file_list)}.")
-    
+
     total_rtf = 0.0
     cnt = 0
     for src_wav_path in tqdm(source_file_list):
@@ -73,7 +73,7 @@ def convert(args):
 
         ppg = ppg[:, :min_len]
         lf0_uv = lf0_uv[:min_len]
-        
+
         start = time.time()
         _, mel_pred, att_ws = ppg2mel_model.inference(
             ppg,
@@ -90,7 +90,7 @@ def convert(args):
         mel_pred= mel_pred.transpose(0, 1)
         y, output_sample_rate = vocoder.infer_waveform(mel_pred.cpu())
         sf.write(wav_fname, y.squeeze(), output_sample_rate, "PCM_16")
-    
+
     print("RTF:")
     print(total_rtf / cnt)
 

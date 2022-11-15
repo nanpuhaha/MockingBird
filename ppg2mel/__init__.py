@@ -36,7 +36,7 @@ class MelDecoderMOLv2(AbsMelDecoder):
         mask_padding: bool = True,
     ):
         super().__init__()
-        
+
         self.mask_padding = mask_padding
         self.bottle_neck_feature_dim = bottle_neck_feature_dim
         self.num_mels = 80
@@ -45,7 +45,7 @@ class MelDecoderMOLv2(AbsMelDecoder):
         self.use_spk_dvec = True
 
         input_dim = bottle_neck_feature_dim
-        
+
         # Downsampling convolution
         self.bnf_prenet = torch.nn.Sequential(
             torch.nn.Conv1d(input_dim, encoder_dim, kernel_size=1, bias=False),
@@ -59,7 +59,7 @@ class MelDecoderMOLv2(AbsMelDecoder):
                 padding=encoder_downsample_rates[0]//2,
             ),
             torch.nn.LeakyReLU(0.1),
-            
+
             torch.nn.InstanceNorm1d(encoder_dim, affine=False),
             torch.nn.Conv1d(
                 encoder_dim, encoder_dim, 
@@ -84,7 +84,7 @@ class MelDecoderMOLv2(AbsMelDecoder):
                 padding=encoder_downsample_rates[0]//2,
             ),
             torch.nn.LeakyReLU(0.1),
-            
+
             torch.nn.InstanceNorm1d(encoder_dim, affine=False),
             torch.nn.Conv1d(
                 encoder_dim, encoder_dim, 
@@ -96,7 +96,7 @@ class MelDecoderMOLv2(AbsMelDecoder):
 
             torch.nn.InstanceNorm1d(encoder_dim, affine=False),
         )
-        
+
         self.reduce_proj = torch.nn.Linear(encoder_dim + spk_embed_dim, encoder_dim)
 
         # Decoder
@@ -140,13 +140,13 @@ class MelDecoderMOLv2(AbsMelDecoder):
         ).transpose(1, 2)
         logf0_uv = self.pitch_convs(logf0_uv.transpose(1, 2)).transpose(1, 2)
         decoder_inputs = decoder_inputs + logf0_uv
-            
+
         assert spembs is not None
         spk_embeds = F.normalize(
             spembs).unsqueeze(1).expand(-1, decoder_inputs.size(1), -1)
         decoder_inputs = torch.cat([decoder_inputs, spk_embeds], dim=-1)
         decoder_inputs = self.reduce_proj(decoder_inputs)
-        
+
         # (B, num_mels, T_dec)
         T_dec = torch.div(feature_lengths, int(self.encoder_down_factor), rounding_mode='floor')
         mel_outputs, predicted_stop, alignments = self.decoder(
@@ -188,7 +188,7 @@ class MelDecoderMOLv2(AbsMelDecoder):
         mel_outputs_postnet = self.postnet(mel_outputs.transpose(1, 2)).transpose(1, 2)
         mel_outputs_postnet = mel_outputs + mel_outputs_postnet
         # outputs = mel_outputs_postnet[0]
-        
+
         return mel_outputs[0], mel_outputs_postnet[0], alignments[0]
 
 def load_model(train_config, model_file, device=None):

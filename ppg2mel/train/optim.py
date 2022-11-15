@@ -15,7 +15,7 @@ class Optimizer():
             warmup_step = 4000.0
             init_lr = lr
             self.lr_scheduler = lambda step: init_lr * warmup_step ** 0.5 * \
-                np.minimum((step+1)*warmup_step**-1.5, (step+1)**-0.5)
+                    np.minimum((step+1)*warmup_step**-1.5, (step+1)**-0.5)
             self.opt = opt(parameters, lr=1.0)
         else:
             self.lr_scheduler = None
@@ -41,5 +41,6 @@ class Optimizer():
         self.opt.step()
 
     def create_msg(self):
-        return ['Optim.Info.| Algo. = {}\t| Lr = {}\t (schedule = {})'
-                .format(self.opt_type, self.init_lr, self.sch_type)]
+        return [
+            f'Optim.Info.| Algo. = {self.opt_type}\t| Lr = {self.init_lr}\t (schedule = {self.sch_type})'
+        ]

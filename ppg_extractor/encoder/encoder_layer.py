@@ -146,7 +146,4 @@ class EncoderLayer(nn.Module):
         if cache is not None:
             x = torch.cat([cache, x], dim=1)
 
-        if pos_emb is not None:
-            return (x, pos_emb), mask
-
-        return x, mask
+        return ((x, pos_emb), mask) if pos_emb is not None else (x, mask)

@@ -33,20 +33,17 @@ def get_converted_lf0uv(
     f0_src = compute_f0(wav)
     if not convert:
         uv, cont_lf0 = get_cont_lf0(f0_src)
-        lf0_uv = np.concatenate([cont_lf0[:, np.newaxis], uv[:, np.newaxis]], axis=1)
-        return lf0_uv
-
+        return np.concatenate([cont_lf0[:, np.newaxis], uv[:, np.newaxis]], axis=1)
     lf0_src = f02lf0(f0_src)
     lf0_mean_src, lf0_std_src = compute_mean_std(lf0_src)
-    
+
     lf0_vc = lf0_src.copy()
     lf0_vc[lf0_src > 0.0] = (lf0_src[lf0_src > 0.0] - lf0_mean_src) / lf0_std_src * lf0_std_trg + lf0_mean_trg
     f0_vc = lf0_vc.copy()
     f0_vc[lf0_src > 0.0] = np.exp(lf0_vc[lf0_src > 0.0])
-    
+
     uv, cont_lf0_vc = get_cont_lf0(f0_vc)
-    lf0_uv = np.concatenate([cont_lf0_vc[:, np.newaxis], uv[:, np.newaxis]], axis=1)
-    return lf0_uv
+    return np.concatenate([cont_lf0_vc[:, np.newaxis], uv[:, np.newaxis]], axis=1)
 
 def low_pass_filter(x, fs, cutoff=70, padding=True):
     """FUNCTION TO APPLY LOW PASS FILTER
