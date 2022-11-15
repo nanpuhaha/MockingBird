@@ -100,18 +100,18 @@ class UI(QDialog):
                               (self.min_umap_points - len(utterances)), 
                               horizontalalignment='center', fontsize=15)
             self.umap_ax.set_title("")
-            
+
         # Compute the projections
         else:
             if not self.umap_hot:
                 self.log(
                     "Drawing UMAP projections for the first time, this will take a few seconds.")
                 self.umap_hot = True
-            
+
             reducer = umap.UMAP(int(np.ceil(np.sqrt(len(embeds)))), metric="cosine")
             # reducer = TSNE()
             projections = reducer.fit_transform(embeds)
-            
+
             speakers_done = set()
             for projection, utterance in zip(projections, utterances):
                 color = colors[utterance.speaker_name]
@@ -160,16 +160,16 @@ class UI(QDialog):
                 output_devices.append(device["name"])
             except Exception as e:
                 # Log a warning only if the device is not an input
-                if not device["name"] in input_devices:
+                if device["name"] not in input_devices:
                     warn("Unsupported output device %s for the sample rate: %d \nError: %s" % (device["name"], sample_rate, str(e)))
 
-        if len(input_devices) == 0:
+        if not input_devices:
             self.log("No audio input device detected. Recording may not work.")
             self.audio_in_device = None
         else:
             self.audio_in_device = input_devices[0]
 
-        if len(output_devices) == 0:
+        if not output_devices:
             self.log("No supported output audio devices were found! Audio output may not work.")
             self.audio_out_devices_cb.addItems(["None"])
             self.audio_out_devices_cb.setDisabled(True)
@@ -270,17 +270,17 @@ class UI(QDialog):
             if datasets_root is not None:
                 datasets = [datasets_root.joinpath(d) for d in recognized_datasets]
                 datasets = [d.relative_to(datasets_root) for d in datasets if d.exists()]
-                self.browser_load_button.setDisabled(len(datasets) == 0)
+                self.browser_load_button.setDisabled(not datasets)
             if datasets_root is None or len(datasets) == 0:
                 msg = "Warning: you d" + ("id not pass a root directory for datasets as argument" \
-                    if datasets_root is None else "o not have any of the recognized datasets" \
-                                                  " in %s" % datasets_root) 
+                        if datasets_root is None else "o not have any of the recognized datasets" \
+                                                      " in %s" % datasets_root) 
                 self.log(msg)
                 msg += ".\nThe recognized datasets are:\n\t%s\nFeel free to add your own. You " \
-                       "can still use the toolbox by recording samples yourself." % \
-                       ("\n\t".join(recognized_datasets))
+                           "can still use the toolbox by recording samples yourself." % \
+                           ("\n\t".join(recognized_datasets))
                 print(msg, file=sys.stderr)
-                
+
                 self.random_utterance_button.setDisabled(True)
                 self.random_speaker_button.setDisabled(True)
                 self.random_dataset_button.setDisabled(True)
@@ -289,15 +289,15 @@ class UI(QDialog):
                 self.dataset_box.setDisabled(True)
                 self.browser_load_button.setDisabled(True)
                 self.auto_next_checkbox.setDisabled(True)
-                return 
+                return
             self.repopulate_box(self.dataset_box, datasets, random)
-    
+
         # Select a random speaker
         if level <= 1:
             speakers_root = datasets_root.joinpath(self.current_dataset_name)
             speaker_names = [d.stem for d in speakers_root.glob("*") if d.is_dir()]
             self.repopulate_box(self.speaker_box, speaker_names, random)
-    
+
         # Select a random utterance
         if level <= 2:
             utterances_root = datasets_root.joinpath(
@@ -306,7 +306,7 @@ class UI(QDialog):
             )
             utterances = []
             for extension in ['mp3', 'flac', 'wav', 'm4a']:
-                utterances.extend(Path(utterances_root).glob("**/*.%s" % extension))
+                utterances.extend(Path(utterances_root).glob(f"**/*.{extension}"))
             utterances = [fpath.relative_to(utterances_root) for fpath in utterances]
             self.repopulate_box(self.utterance_box, utterances, random)
             
@@ -338,29 +338,27 @@ class UI(QDialog):
                         vocoder_models_dir: Path, extractor_models_dir: Path, convertor_models_dir: Path, vc_mode: bool):
         # Encoder
         encoder_fpaths = list(encoder_models_dir.glob("*.pt"))
-        if len(encoder_fpaths) == 0:
-            raise Exception("No encoder models found in %s" % encoder_models_dir)
+        if not encoder_fpaths:
+            raise Exception(f"No encoder models found in {encoder_models_dir}")
         self.repopulate_box(self.encoder_box, [(f.stem, f) for f in encoder_fpaths])
-        
+
         if vc_mode:
             # Extractor
             extractor_fpaths = list(extractor_models_dir.glob("*.pt"))
-            if len(extractor_fpaths) == 0:
-                self.log("No extractor models found in %s" % extractor_fpaths)
+            if not extractor_fpaths:
+                self.log(f"No extractor models found in {extractor_fpaths}")
             self.repopulate_box(self.extractor_box, [(f.stem, f) for f in extractor_fpaths])
-            
+
             # Convertor
             convertor_fpaths = list(convertor_models_dir.glob("*.pth"))
-            if len(convertor_fpaths) == 0:
-                self.log("No convertor models found in %s" % convertor_fpaths)
+            if not convertor_fpaths:
+                self.log(f"No convertor models found in {convertor_fpaths}")
             self.repopulate_box(self.convertor_box, [(f.stem, f) for f in convertor_fpaths])
-        else:
-            # Synthesizer
-            synthesizer_fpaths = list(synthesizer_models_dir.glob("**/*.pt"))
-            if len(synthesizer_fpaths) == 0:
-                raise Exception("No synthesizer models found in %s" % synthesizer_models_dir)
+        elif synthesizer_fpaths := list(synthesizer_models_dir.glob("**/*.pt")):
             self.repopulate_box(self.synthesizer_box, [(f.stem, f) for f in synthesizer_fpaths])
 
+        else:
+            raise Exception(f"No synthesizer models found in {synthesizer_models_dir}")
         # Vocoder
         vocoder_fpaths = list(vocoder_models_dir.glob("**/*.pt"))
         vocoder_items = [(f.stem, f) for f in vocoder_fpaths] + [("Griffin-Lim", None)]
@@ -452,17 +450,17 @@ class UI(QDialog):
         self.setWindowIcon(QtGui.QIcon('toolbox\\assets\\mb.png'))
         self.setWindowFlag(Qt.WindowMinimizeButtonHint, True)
         self.setWindowFlag(Qt.WindowMaximizeButtonHint, True)
-        
-        
+
+
         ## Main layouts
         # Root
         root_layout = QGridLayout()
         self.setLayout(root_layout)
-        
+
         # Browser
         browser_layout = QGridLayout()
         root_layout.addLayout(browser_layout, 0, 0, 1, 8)
-        
+
         # Generation
         gen_layout = QVBoxLayout()
         root_layout.addLayout(gen_layout, 0, 8)
@@ -478,7 +476,7 @@ class UI(QDialog):
         # Projections
         self.projections_layout = QVBoxLayout()
         root_layout.addLayout(self.projections_layout, 1, 8, 2, 2)
-        
+
         ## Projections
         # UMap
         fig, self.umap_ax = plt.subplots(figsize=(3, 3), facecolor="#F0F0F0")
@@ -492,7 +490,7 @@ class UI(QDialog):
         ## Browser
         # Dataset, speaker and utterance selection
         i = 0
-        
+
         source_groupbox = QGroupBox('Source(源音频)')
         source_layout = QGridLayout()
         source_groupbox.setLayout(source_layout)
@@ -527,7 +525,7 @@ class UI(QDialog):
         source_layout.addWidget(self.browser_browse_button, i, 3)
         self.record_button = QPushButton("Record(录音)")
         source_layout.addWidget(self.record_button, i+1, 3)
-        
+
         i += 2
         # Utterance box
         browser_layout.addWidget(QLabel("<b>Current(当前):</b>"), i, 0)
@@ -565,7 +563,7 @@ class UI(QDialog):
         self.vocoder_box = QComboBox()
         model_layout.addWidget(QLabel("Vocoder:"))
         model_layout.addWidget(self.vocoder_box)
-    
+
         #Replay & Save Audio
         i = 0
         output_layout.addWidget(QLabel("<b>Toolbox Output:</b>"), i, 0)
@@ -603,11 +601,11 @@ class UI(QDialog):
             ax.set_facecolor("#F0F0F0")
             for side in ["top", "right", "bottom", "left"]:
                 ax.spines[side].set_visible(False)
-        
+
         ## Generation
         self.text_prompt = QPlainTextEdit(default_text)
         gen_layout.addWidget(self.text_prompt, stretch=1)
-        
+
         if vc_mode:
             layout = QHBoxLayout()
             self.convert_button = QPushButton("Extract and Convert")
@@ -679,18 +677,18 @@ class UI(QDialog):
 
         self.loading_bar = QProgressBar()
         gen_layout.addWidget(self.loading_bar)
-        
+
         self.log_window = QLabel()
         self.log_window.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
         gen_layout.addWidget(self.log_window)
         self.logs = []
         gen_layout.addStretch()
 
-        
+
         ## Set the size of the window and of the elements
         max_size = QDesktopWidget().availableGeometry(self).size() * 0.5
         self.resize(max_size)
-        
+
         ## Finalize the display
         self.reset_interface(vc_mode)
         self.show()

@@ -55,7 +55,7 @@ class OneshotVcDataset(torch.utils.data.Dataset):
             assert mel_max is not None
             self.mel_max = mel_max
             self.mel_min = mel_min
-        
+
         random.seed(1234)
         random.shuffle(self.fid_list)
         print(f'[INFO] Got {len(self.fid_list)} samples.')
@@ -164,7 +164,7 @@ class MultiSpkVcCollate():
         self.use_spk_dvec = use_spk_dvec
 
     def __call__(self, batch):
-        batch_size = len(batch)              
+        batch_size = len(batch)
         # Prepare different features 
         ppgs = [x[0] for x in batch]
         lf0_uvs = [x[1] for x in batch]
@@ -200,15 +200,8 @@ class MultiSpkVcCollate():
             stop_tokens[i, cur_ppg_len-self.n_frames_per_step:] = 1
         if len(batch[0]) == 5:
             ret_tup = (ppgs_padded, lf0_uvs_padded, mels_padded, torch.LongTensor(ppg_lengths), \
-                torch.LongTensor(mel_lengths), spk_ids, stop_tokens)
-            if self.give_uttids:
-                return ret_tup + (fids, )
-            else:
-                return ret_tup
+                    torch.LongTensor(mel_lengths), spk_ids, stop_tokens)
         else:
             ret_tup = (ppgs_padded, lf0_uvs_padded, mels_padded, torch.LongTensor(ppg_lengths), \
-                torch.LongTensor(mel_lengths), stop_tokens)
-            if self.give_uttids:
-                return ret_tup + (fids, )
-            else:
-                return ret_tup
+                    torch.LongTensor(mel_lengths), stop_tokens)
+        return ret_tup + (fids, ) if self.give_uttids else ret_tup

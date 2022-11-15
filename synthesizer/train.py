@@ -41,20 +41,20 @@ def train(run_id: str, syn_dir: str, models_dir: str, save_every: int,
     wav_dir.mkdir(exist_ok=True)
     mel_output_dir.mkdir(exist_ok=True)
     meta_folder.mkdir(exist_ok=True)
-    
+
     weights_fpath = model_dir.joinpath(run_id).with_suffix(".pt")
     metadata_fpath = syn_dir.joinpath("train.txt")
-    
-    print("Checkpoint path: {}".format(weights_fpath))
-    print("Loading training data from: {}".format(metadata_fpath))
+
+    print(f"Checkpoint path: {weights_fpath}")
+    print(f"Loading training data from: {metadata_fpath}")
     print("Using model: Tacotron")
-    
+
     # Book keeping
     step = 0
     time_window = ValueWindow(100)
     loss_window = ValueWindow(100)
-    
-    
+
+
     # From WaveRNN/train_tacotron.py
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -78,7 +78,7 @@ def train(run_id: str, syn_dir: str, models_dir: str, save_every: int,
             num_chars != loaded_shape[0]
                 # Try to scan config file
         model_config_fpaths = list(weights_fpath.parent.rglob("*.json"))
-        if len(model_config_fpaths)>0 and model_config_fpaths[0].exists():
+        if model_config_fpaths and model_config_fpaths[0].exists():
             with model_config_fpaths[0].open("r", encoding="utf-8") as f:
                 hparams.loadJson(json.load(f))
         else:  # save a config
@@ -115,13 +115,13 @@ def train(run_id: str, syn_dir: str, models_dir: str, save_every: int,
                 if symbol == " ":
                     symbol = "\\s"  # For visual purposes, swap space with \s
 
-                f.write("{}\n".format(symbol))
+                f.write(f"{symbol}\n")
 
     else:
         print("\nLoading weights at %s" % weights_fpath)
         model.load(weights_fpath, device, optimizer)
         print("Tacotron weights loaded from step %d" % model.step)
-    
+
     # Initialize the dataset
     metadata_fpath = syn_dir.joinpath("train.txt")
     mel_dir = syn_dir.joinpath("mels")
@@ -144,21 +144,24 @@ def train(run_id: str, syn_dir: str, models_dir: str, save_every: int,
 
         # Do we need to change to the next session?
         if current_step >= max_step:
-            # Are there no further sessions than the current one?
-            if i == len(hparams.tts_schedule) - 1:
-                # We have completed training. Save the model and exit
-                model.save(weights_fpath, optimizer)
-                break
-            else:
+            if i != len(hparams.tts_schedule) - 1:
                 # There is a following session, go to it
                 continue
 
+            # We have completed training. Save the model and exit
+            model.save(weights_fpath, optimizer)
+            break
         model.r = r
         # Begin the training
-        simple_table([(f"Steps with r={r}", str(training_steps // 1000) + "k Steps"),
-                      ("Batch Size", batch_size),
-                      ("Learning Rate", lr),
-                      ("Outputs/Step (r)", model.r)])
+        simple_table(
+            [
+                (f"Steps with r={r}", f"{str(training_steps // 1000)}k Steps"),
+                ("Batch Size", batch_size),
+                ("Learning Rate", lr),
+                ("Outputs/Step (r)", model.r),
+            ]
+        )
+
 
         for p in optimizer.param_groups:
             p["lr"] = lr
@@ -172,7 +175,7 @@ def train(run_id: str, syn_dir: str, models_dir: str, save_every: int,
                                  shuffle=True,
                                  pin_memory=True)
 
-        total_iters = len(dataset) 
+        total_iters = len(dataset)
         steps_per_epoch = np.ceil(total_iters / batch_size).astype(np.int32)
         epochs = np.ceil(training_steps / steps_per_epoch).astype(np.int32)
 
@@ -221,7 +224,7 @@ def train(run_id: str, syn_dir: str, models_dir: str, save_every: int,
                 step = model.get_step()
                 k = step // 1000
 
-                
+
                 msg = f"| Epoch: {epoch}/{epochs} ({i}/{steps_per_epoch}) | Loss: {loss_window.average:#.4} | {1./time_window.average:#.2} steps/s | Step: {k}k | "
                 stream(msg)
 
@@ -229,15 +232,15 @@ def train(run_id: str, syn_dir: str, models_dir: str, save_every: int,
                     sw.add_scalar("training/loss", loss_window.average, step)
 
                 # Backup or save model as appropriate
-                if backup_every != 0 and step % backup_every == 0 : 
-                    backup_fpath = Path("{}/{}_{}.pt".format(str(weights_fpath.parent), run_id, step))
+                if backup_every != 0 and step % backup_every == 0: 
+                    backup_fpath = Path(f"{str(weights_fpath.parent)}/{run_id}_{step}.pt")
                     model.save(backup_fpath, optimizer)
 
                 if save_every != 0 and step % save_every == 0 : 
                     # Must save latest optimizer state to ensure that resuming training
                     # doesn't produce artifacts
                     model.save(weights_fpath, optimizer)
-                    
+
 
                 # Evaluate model to generate samples
                 epoch_eval = hparams.tts_eval_interval == -1 and i == steps_per_epoch  # If epoch is done
@@ -276,21 +279,33 @@ def train(run_id: str, syn_dir: str, models_dir: str, save_every: int,
 def eval_model(attention, mel_prediction, target_spectrogram, input_seq, step,
                plot_dir, mel_output_dir, wav_dir, sample_num, loss, hparams, sw):
     # Save some results for evaluation
-    attention_path = str(plot_dir.joinpath("attention_step_{}_sample_{}".format(step, sample_num)))
+    attention_path = str(
+        plot_dir.joinpath(f"attention_step_{step}_sample_{sample_num}")
+    )
+
     # save_attention(attention, attention_path)
     save_and_trace_attention(attention, attention_path, sw, step)
 
     # save predicted mel spectrogram to disk (debug)
-    mel_output_fpath = mel_output_dir.joinpath("mel-prediction-step-{}_sample_{}.npy".format(step, sample_num))
+    mel_output_fpath = mel_output_dir.joinpath(
+        f"mel-prediction-step-{step}_sample_{sample_num}.npy"
+    )
+
     np.save(str(mel_output_fpath), mel_prediction, allow_pickle=False)
 
     # save griffin lim inverted wav for debug (mel -> wav)
     wav = audio.inv_mel_spectrogram(mel_prediction.T, hparams)
-    wav_fpath = wav_dir.joinpath("step-{}-wave-from-mel_sample_{}.wav".format(step, sample_num))
+    wav_fpath = wav_dir.joinpath(
+        f"step-{step}-wave-from-mel_sample_{sample_num}.wav"
+    )
+
     audio.save_wav(wav, str(wav_fpath), sr=hparams.sample_rate)
 
     # save real and predicted mel-spectrogram plot to disk (control purposes)
-    spec_fpath = plot_dir.joinpath("step-{}-mel-spectrogram_sample_{}.png".format(step, sample_num))
+    spec_fpath = plot_dir.joinpath(
+        f"step-{step}-mel-spectrogram_sample_{sample_num}.png"
+    )
+
     title_str = "{}, {}, step={}, loss={:.5f}".format("Tacotron", time_string(), step, loss)
     # plot_spectrogram(mel_prediction, str(spec_fpath), title=title_str,
     #                  target_spectrogram=target_spectrogram,
@@ -303,4 +318,4 @@ def eval_model(attention, mel_prediction, target_spectrogram, input_seq, step,
         max_len=target_spectrogram.size // hparams.num_mels,
         sw=sw,
         step=step)
-    print("Input at step {}: {}".format(step, sequence_to_text(input_seq)))
+    print(f"Input at step {step}: {sequence_to_text(input_seq)}")

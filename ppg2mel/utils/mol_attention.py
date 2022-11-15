@@ -20,10 +20,7 @@ class MOLAttention(nn.Module):
             M: number of mixtures.
         """
         super().__init__()
-        if r < 1:
-            self.r = float(r)
-        else:
-            self.r = int(r)
+        self.r = float(r) if r < 1 else int(r)
         self.M = M
         self.score_mask_value = 0.0 # -float("inf")
         self.eps = 1e-5
@@ -74,19 +71,19 @@ class MOLAttention(nn.Module):
         """
         # [B, 3M]
         mixture_params = self.query_layer(att_rnn_h)
-        
+
         # [B, M]
         w_hat = mixture_params[:, :self.M]
         sigma_hat = mixture_params[:, self.M:2*self.M]
         Delta_hat = mixture_params[:, 2*self.M:3*self.M]
-        
+
         # print("w_hat: ", w_hat)
         # print("sigma_hat: ", sigma_hat)
         # print("Delta_hat: ", Delta_hat)
 
         # Dropout to de-correlate attention heads
         w_hat = F.dropout(w_hat, p=0.5, training=self.training) # NOTE(sx): needed?
-        
+
         # Mixture parameters
         w = torch.softmax(w_hat, dim=-1) + self.eps
         sigma = F.softplus(sigma_hat) + self.eps
@@ -100,7 +97,7 @@ class MOLAttention(nn.Module):
         phi_t = w.unsqueeze(-1) * (1 / (1 + torch.sigmoid(
             (mu_cur.unsqueeze(-1) - j) / sigma.unsqueeze(-1))))
         # print("phi_t:", phi_t)
-        
+
         # Discretize attention weights
         # (B, T_enc + 1)
         alpha_t = torch.sum(phi_t, dim=1)
@@ -116,7 +113,7 @@ class MOLAttention(nn.Module):
             context_pitch = torch.bmm(alpha_t.unsqueeze(1), memory_pitch).squeeze(1)
 
         self.mu_prev = mu_cur
-        
+
         if memory_pitch is not None:
             return context, context_pitch, alpha_t
         return context, alpha_t
